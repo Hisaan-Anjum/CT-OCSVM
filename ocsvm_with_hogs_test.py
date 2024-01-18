@@ -1,12 +1,15 @@
 import os
 import cv2
 import numpy as np
+# import cupy as cp  - Import CuPy for GPU computations
 from sklearn.preprocessing import StandardScaler
 from skimage.feature import hog
 from keras.models import load_model
 
 def extract_hog_features(images):
     features = []
+    # For transferring to gpu:
+    # images = cp.asarray(images)
     for img in images:
         _, hog_feature = hog(img.reshape((256, 256)), orientations=8, pixels_per_cell=(16, 16), cells_per_block=(1, 1), block_norm='L2-Hys', visualize=True)
         features.append(hog_feature.flatten())

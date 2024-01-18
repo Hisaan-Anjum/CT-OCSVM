@@ -31,20 +31,26 @@ def augment_images(directory, augmentation_factor):
         img = np.expand_dims(img, axis=-1)
         img = np.expand_dims(img, axis=0)
 
+        # Generate augmented images
         for _ in range(augmentation_factor):
             augmented_img = datagen.flow(img).next()[0]
             augmented_images.append(augmented_img)
 
     return np.array(augmented_images)
 
-def extract_hog_features(images):
+def extract_hog_features(images, batch_size=32):
     features = []
-    # For transferring to gpu:
-    # images = cp.asarray(images)
-    for img in images:
-        # Also please try 8,8 pixels per cell if there is enough computing power
-        _, hog_feature = hog(img.reshape((256, 256)), orientations=8, pixels_per_cell=(16, 16), cells_per_block=(1, 1), block_norm='L2-Hys', visualize=True)
-        features.append(hog_feature.flatten())
+    for i in range(0, len(images), batch_size):
+        batch_imgs = images[i:i + batch_size]
+        batch_features = []
+        # Transfer images to GPU memory using CuPy
+        # batch_imgs = cp.asarray(batch_imgs)
+        for img in batch_imgs:
+            _, hog_feature = hog(img.reshape((256, 256)), orientations=8, pixels_per_cell=(16, 16), cells_per_block=(1, 1), block_norm='L2-Hys', visualize=True)
+            batch_features.append(hog_feature.flatten())
+
+        features.extend(batch_features)
+
     return np.array(features)
 
 def train_one_class_svc(X_train):
@@ -65,12 +71,13 @@ def save_classifier(classifier, filename='ct_ocsvm.joblib'):
 if __name__ == "__main__":
     normal_images_directory = 'DATASET/TRAIN/NORMAL'
     augmentation_factor = 5
-
+    batch_size = 10
     normal_augmented = augment_images(normal_images_directory, augmentation_factor)
 
+    print("Number of augmented images:", len(normal_augmented))
     X_train, _, _, _ = train_test_split(normal_augmented, np.zeros(normal_augmented.shape[0]), test_size=0.2, random_state=42)
 
-    X_train_hog = extract_hog_features(X_train)
+    X_train_hog = extract_hog_features(X_train, batch_size)
 
     one_class_svc_classifier = train_one_class_svc(X_train_hog)
 
